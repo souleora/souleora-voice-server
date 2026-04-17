@@ -79,8 +79,8 @@ export function mountSchedulerRoutes(app) {
         },
         body: new URLSearchParams({
           'mode': 'payment',
-          'success_url': `${req.headers.origin || 'https://souleora.github.io/souleora-site'}/call.html?booked=true&session_id={CHECKOUT_SESSION_ID}`,
-          'cancel_url': `${req.headers.origin || 'https://souleora.github.io/souleora-site'}/call.html?cancelled=true`,
+          'success_url': 'https://souleora.github.io/souleora-site/call.html?booked=true&session_id={CHECKOUT_SESSION_ID}',
+          'cancel_url': 'https://souleora.github.io/souleora-site/call.html?cancelled=true',
           'customer_email': email,
           'line_items[0][price_data][currency]': 'usd',
           'line_items[0][price_data][product_data][name]': `Souleora ${planInfo.name} with Luna`,
