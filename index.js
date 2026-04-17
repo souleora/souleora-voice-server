@@ -8,15 +8,19 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.join(__dirname, '../../.env') });
+// Try loading .env for local dev; Railway injects env vars directly
+try { dotenv.config({ path: path.join(__dirname, '../../.env') }); } catch {}
+try { dotenv.config(); } catch {}
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-const PORT = process.env.VOICE_SERVER_PORT || 3003;
+const PORT = process.env.PORT || process.env.VOICE_SERVER_PORT || 3003;
 const ASTRO_USER = process.env.ASTROLOGY_API_USER_ID;
 const ASTRO_KEY = process.env.ASTROLOGY_API_KEY;
+
+console.log(`[Config] ASTRO_USER: ${ASTRO_USER ? 'set' : 'MISSING'}, ASTRO_KEY: ${ASTRO_KEY ? ASTRO_KEY.substring(0,8)+'...' : 'MISSING'}`);
 const TRANSCRIPTS_DIR = path.join(__dirname, '../transcripts');
 const ANALYSIS_DIR = path.join(__dirname, '../analysis');
 const PROFILES_DIR = path.join(__dirname, '../caller-profiles');
