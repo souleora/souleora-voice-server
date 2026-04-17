@@ -610,8 +610,19 @@ app.get('/api/stats', (req, res) => {
   });
 });
 
+
+// ===== TEST ROUTE =====
+app.get('/api/test-scheduler', (req, res) => {
+  res.json({ scheduler: 'reachable', time: new Date().toISOString() });
+});
+
 // ===== MOUNT SCHEDULER =====
-mountSchedulerRoutes(app);
+try {
+  mountSchedulerRoutes(app);
+  console.log('[Scheduler] Routes mounted successfully');
+} catch (e) {
+  console.error('[Scheduler] Failed to mount:', e.message);
+}
 
 // ===== HEALTH CHECK =====
 app.get('/', (req, res) => {
