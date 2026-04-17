@@ -91,50 +91,60 @@ function getTimezoneOffset(tz) {
 // ===== ASTROLOGY API CALLS =====
 import { execSync } from 'child_process';
 
+const ASTRO_PROXY_URL = process.env.ASTRO_PROXY_URL;
+
 async function astroCall(endpoint, body) {
-  // Try native fetch first (works in cloud), fall back to curl (works locally)
-  const auth = Buffer.from(`${ASTRO_USER}:${ASTRO_KEY}`).toString('base64');
+  // Strategy: Use Cloudflare proxy (Mac mini) if available, then direct curl, then fetch
   
-  try {
-    // Use the non-json endpoint with explicit accept header
-    const url = `https://json.astrologyapi.com/v1/${endpoint}`;
-    console.log(`[AstroAPI] Calling ${url} with user=${ASTRO_USER}`);
-    
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Basic ${auth}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify(body)
-    });
-    
-    const text = await res.text();
-    let data;
-    try { data = JSON.parse(text); } catch { data = { error: 'Invalid JSON', raw: text.substring(0, 200) }; }
-    
-    // Check if the API returned an error (their Lambda sometimes breaks)
-    if (data.errorType || data.errorMessage) {
-      console.log(`[AstroAPI] Fetch got API error, trying curl fallback...`);
-      throw new Error('API error, try curl');
-    }
-    
-    console.log(`[AstroAPI] Response for ${endpoint}: planets=${data.planets?.length || 0}`);
-    return data;
-  } catch (fetchErr) {
-    // Fallback to curl (handles the API quirk that fetch sometimes triggers)
+  // Method 1: Proxy through Mac mini (most reliable)
+  if (ASTRO_PROXY_URL) {
     try {
-      const cmd = `curl -s -X POST "https://json.astrologyapi.com/v1/${endpoint}" -u "${ASTRO_USER}:${ASTRO_KEY}" -H "Content-Type: application/json" -d '${JSON.stringify(body)}'`;
-      const result = execSync(cmd, { encoding: 'utf8', timeout: 15000 });
-      const data = JSON.parse(result);
-      console.log(`[AstroAPI] Curl fallback for ${endpoint}: planets=${data.planets?.length || 0}`);
-      return data;
-    } catch (curlErr) {
-      console.error(`[AstroAPI] Both fetch and curl failed for ${endpoint}:`, fetchErr.message, curlErr.message);
-      return { error: 'AstrologyAPI unavailable' };
+      const url = `${ASTRO_PROXY_URL}/astro/${endpoint}`;
+      console.log(`[AstroAPI] Using proxy: ${url}`);
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (data.planets || data.prediction) {
+        console.log(`[AstroAPI] Proxy success: planets=${data.planets?.length || '?'}`);
+        return data;
+      }
+      if (data.error) throw new Error(data.error);
+    } catch (e) {
+      console.log(`[AstroAPI] Proxy failed: ${e.message}, trying fallbacks...`);
     }
   }
+
+  // Method 2: Direct curl (works locally)
+  try {
+    const cmd = `curl -s -X POST "https://json.astrologyapi.com/v1/${endpoint}" -u "${ASTRO_USER}:${ASTRO_KEY}" -H "Content-Type: application/json" -d '${JSON.stringify(body)}'`;
+    const result = execSync(cmd, { encoding: 'utf8', timeout: 15000 });
+    const data = JSON.parse(result);
+    if (data.planets || data.prediction) {
+      console.log(`[AstroAPI] Curl success: planets=${data.planets?.length || '?'}`);
+      return data;
+    }
+  } catch (e) {
+    console.log(`[AstroAPI] Curl failed: ${e.message}`);
+  }
+
+  // Method 3: Native fetch (may fail on some cloud providers)
+  try {
+    const auth = Buffer.from(`${ASTRO_USER}:${ASTRO_KEY}`).toString('base64');
+    const res = await fetch(`https://json.astrologyapi.com/v1/${endpoint}`, {
+      method: 'POST',
+      headers: { 'Authorization': `Basic ${auth}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if (!data.errorType) return data;
+  } catch (e) {
+    console.log(`[AstroAPI] Fetch failed: ${e.message}`);
+  }
+
+  return { error: 'All AstrologyAPI methods failed' };
 }
 
 async function getFullBirthChart(day, month, year, hour, min, lat, lon, tzone) {
