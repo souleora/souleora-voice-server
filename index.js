@@ -92,16 +92,48 @@ function getTimezoneOffset(tz) {
 import { execSync } from 'child_process';
 
 async function astroCall(endpoint, body) {
+  // Try native fetch first (works in cloud), fall back to curl (works locally)
+  const auth = Buffer.from(`${ASTRO_USER}:${ASTRO_KEY}`).toString('base64');
+  
   try {
-    const bodyStr = JSON.stringify(body).replace(/'/g, "'\''");
-    const cmd = `curl -s -X POST "https://json.astrologyapi.com/v1/${endpoint}" -u "${ASTRO_USER}:${ASTRO_KEY}" -H "Content-Type: application/json" -d '${JSON.stringify(body)}'`;
-    const result = execSync(cmd, { encoding: 'utf8', timeout: 15000 });
-    const data = JSON.parse(result);
+    // Use the non-json endpoint with explicit accept header
+    const url = `https://json.astrologyapi.com/v1/${endpoint}`;
+    console.log(`[AstroAPI] Calling ${url} with user=${ASTRO_USER}`);
+    
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${auth}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+    
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch { data = { error: 'Invalid JSON', raw: text.substring(0, 200) }; }
+    
+    // Check if the API returned an error (their Lambda sometimes breaks)
+    if (data.errorType || data.errorMessage) {
+      console.log(`[AstroAPI] Fetch got API error, trying curl fallback...`);
+      throw new Error('API error, try curl');
+    }
+    
     console.log(`[AstroAPI] Response for ${endpoint}: planets=${data.planets?.length || 0}`);
     return data;
-  } catch (e) {
-    console.error(`[AstroAPI] Error for ${endpoint}:`, e.message);
-    return { error: e.message };
+  } catch (fetchErr) {
+    // Fallback to curl (handles the API quirk that fetch sometimes triggers)
+    try {
+      const cmd = `curl -s -X POST "https://json.astrologyapi.com/v1/${endpoint}" -u "${ASTRO_USER}:${ASTRO_KEY}" -H "Content-Type: application/json" -d '${JSON.stringify(body)}'`;
+      const result = execSync(cmd, { encoding: 'utf8', timeout: 15000 });
+      const data = JSON.parse(result);
+      console.log(`[AstroAPI] Curl fallback for ${endpoint}: planets=${data.planets?.length || 0}`);
+      return data;
+    } catch (curlErr) {
+      console.error(`[AstroAPI] Both fetch and curl failed for ${endpoint}:`, fetchErr.message, curlErr.message);
+      return { error: 'AstrologyAPI unavailable' };
+    }
   }
 }
 
