@@ -3,6 +3,7 @@ import cors from 'cors';
 import fs from 'fs';
 import { MemoryEngine } from './memory-engine.js';
 import { mountDashboardRoutes } from './dashboard.js';
+import { mountSchedulerRoutes } from './scheduler.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
@@ -608,6 +609,9 @@ app.get('/api/stats', (req, res) => {
     serverUptime: process.uptime()
   });
 });
+
+// ===== MOUNT SCHEDULER =====
+mountSchedulerRoutes(app);
 
 // ===== HEALTH CHECK =====
 app.get('/', (req, res) => {
