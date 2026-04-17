@@ -405,15 +405,27 @@ async function sendSMS(to, body) {
 // ===== GENERATE AVAILABLE SLOTS =====
 function generateAvailableSlots(dateStr, timezone) {
   const slots = [];
-  const date = new Date(dateStr + 'T00:00:00');
+  const tz = timezone || 'America/Phoenix';
 
-  // Generate slots from 6AM to 11PM, every 30 minutes
+  // Get the UTC offset for the timezone on this date
+  // Create a date in the target timezone and figure out the offset
+  const testDate = new Date(dateStr + 'T12:00:00Z');
+  const utcStr = testDate.toLocaleString('en-US', { timeZone: 'UTC' });
+  const tzStr = testDate.toLocaleString('en-US', { timeZone: tz });
+  const utcMs = new Date(utcStr).getTime();
+  const tzMs = new Date(tzStr).getTime();
+  const offsetMs = tzMs - utcMs; // positive = ahead of UTC, negative = behind
+
+  // Generate slots from 6AM to 10PM in the customer's timezone
   for (let hour = 6; hour <= 22; hour++) {
     for (let min of [0, 30]) {
-      if (hour === 22 && min === 30) continue; // Don't start at 10:30 PM
+      if (hour === 22 && min === 30) continue;
 
-      const slotTime = new Date(date);
-      slotTime.setHours(hour, min, 0, 0);
+      // Create the slot time in UTC by subtracting the timezone offset
+      // e.g., 7PM MST = 7PM + 7hours = 2AM UTC next day (MST is UTC-7)
+      const localMs = new Date(dateStr + 'T00:00:00Z').getTime() + (hour * 3600000) + (min * 60000);
+      const utcSlotMs = localMs - offsetMs;
+      const slotTime = new Date(utcSlotMs);
 
       // Check if slot is already booked
       const isBooked = scheduledCalls.some(b => {
@@ -421,10 +433,10 @@ function generateAvailableSlots(dateStr, timezone) {
         const bookedTime = new Date(b.scheduledTime);
         const diff = Math.abs(bookedTime - slotTime) / 60000;
         const duration = PLANS[b.plan]?.duration || 30;
-        return diff < duration + 15; // Buffer of 15 min between calls
+        return diff < duration + 15;
       });
 
-      // Check if slot is in the past
+      // Check if slot is in the past (must be at least 5 min from now)
       const now = new Date();
       const isPast = slotTime < new Date(now.getTime() + 5 * 60000);
 
