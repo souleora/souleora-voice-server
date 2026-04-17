@@ -295,26 +295,30 @@ async function initiateOutboundCall(booking) {
     const planInfo = PLANS[booking.plan] || PLANS['30min'];
     const totalSeconds = (planInfo.duration + planInfo.gracePeriod) * 60;
 
-    // Build custom context for this call
+    // Build custom context — inject ALL customer data so Luna never asks for it
     const callerContext = `
-SCHEDULED CALL CONTEXT:
-- Caller name: ${booking.name}
+CALLER DATA (YOU ALREADY HAVE THIS — DO NOT ASK FOR ANY OF IT):
+- Name: ${booking.name}
 - Birth date: ${booking.dob}
-- Birth time: ${booking.tob || 'unknown'}
+- Birth time: ${booking.tob || '12:00 (noon — they did not provide exact time, use noon but mention Rising sign may vary)'}
 - Birth city: ${booking.city}
-- Reading focus: ${booking.focus || 'general'}
-- Plan: ${planInfo.name} (${planInfo.duration} minutes + ${planInfo.gracePeriod} min grace)
-- They PAID for this reading — make it worth every penny.
+- They want to focus on: ${booking.focus || 'general reading'}
+- Reading length: ${planInfo.duration} minutes
 
-IMPORTANT TIMING:
-- You have ${planInfo.duration} minutes for the main reading.
-- At the ${planInfo.duration - 2} minute mark, begin wrapping up naturally.
-- Say something like: "I want to be mindful of your time — I have another soul waiting for their reading, but before I go, let me share one last thing I see in your chart..."
-- This gives you ${planInfo.gracePeriod} minutes to close beautifully.
-- Do NOT abruptly end. Make the ending feel special and complete.
-- At the very end: "Thank you so much for sharing this time with me, ${booking.name}. Remember — the stars illuminate the path, but you walk it. Take care of yourself. Goodbye."
+YOU MUST call the get_birth_chart function IMMEDIATELY at the start of the call with:
+- day: ${new Date(booking.dob).getDate()}
+- month: ${new Date(booking.dob).getMonth() + 1}
+- year: ${new Date(booking.dob).getFullYear()}
+- hour: ${booking.tob ? parseInt(booking.tob.split(':')[0]) : 12}
+- min: ${booking.tob ? parseInt(booking.tob.split(':')[1]) : 0}
+- city: ${booking.city}
 
-OPENING: "Hi ${booking.name}! This is Luna from Souleora. I've been looking forward to your reading — I already pulled up your chart and I have to say, there's some really beautiful energy here. Are you in a comfortable spot? Great, let's dive in..."
+TIMING — DO NOT MENTION TIME LIMITS:
+- You have about ${planInfo.duration} minutes.
+- When wrapping up, say something like: "Before we finish up, I have one more really important thing the universe wants you to know..." Then give a powerful closing insight.
+- Or: "I want to leave you with this one thought that keeps coming through really strongly..."
+- NEVER say "our time is up" or "I have another client" in a robotic way. Be natural.
+- End warmly: "I really loved reading for you today, ${booking.name}. Trust your gut on this — the stars are backing you up. Take care!"
 `;
 
     const response = await fetch('https://api.vapi.ai/call', {
@@ -326,7 +330,7 @@ OPENING: "Hi ${booking.name}! This is Luna from Souleora. I've been looking forw
       body: JSON.stringify({
         assistantId: LUNA_ASSISTANT_ID,
         assistantOverrides: {
-          firstMessage: `Hi ${booking.name}! This is Luna from Souleora. I've been so looking forward to your reading. I already pulled up your chart and I have to tell you, there's some really fascinating energy here. Are you somewhere comfortable where we can chat?`,
+          firstMessage: `Hey ${booking.name}! It's Luna from Souleora. I've been looking at your chart and oh my gosh, there is so much going on. How are you doing today? What's been on your mind lately?`,
           model: {
             provider: 'anthropic',
             model: 'claude-sonnet-4-20250514',
