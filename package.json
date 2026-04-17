@@ -1,0 +1,17 @@
+{
+  "name": "souleora-voice-server",
+  "version": "1.0.0",
+  "description": "Souleora Voice Agent — Webhook server, function calling bridge, and memory loop",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.0",
+    "cors": "^2.8.5",
+    "node-fetch": "^3.3.0",
+    "dotenv": "^16.3.0"
+  }
+}
