@@ -629,12 +629,18 @@ app.get('/', (req, res) => {
   res.json({ 
     service: 'Souleora Voice Agent Server',
     status: 'running',
-    version: '1.0.0',
+    version: '1.2.0',
+    build: Date.now(),
     endpoints: {
       functionCall: 'POST /api/function-call',
       webhook: 'POST /api/webhook',
       evolvePrompt: 'POST /api/evolve-prompt',
-      stats: 'GET /api/stats'
+      stats: 'GET /api/stats',
+      book: 'POST /api/book',
+      availableSlots: 'GET /api/available-slots',
+      stripeWebhook: 'POST /api/stripe-webhook',
+      reschedule: 'POST /api/reschedule',
+      bookings: 'GET /api/dashboard/bookings'
     }
   });
 });
